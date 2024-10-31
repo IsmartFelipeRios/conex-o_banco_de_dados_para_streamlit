@@ -40,12 +40,8 @@ def query_to_parquet(query, file_name="resultado.parquet"):
         print(f"Erro ao executar a consulta: {e}")
         return None
 
-def upload_to_github(query, repositorio_nome, nome_arquivo):
-    # Obter o token do GitHub de uma variável de ambiente
-    github_token = os.getenv("GITHUB_TOKEN")
-    if not github_token:
-        print("Erro: Token do GitHub não encontrado. Defina a variável de ambiente GITHUB_TOKEN.")
-        return
+def upload_to_github(query, repositorio_nome, nome_arquivo, github_token):
+
 
     # Executar a consulta e salvar o resultado em parquet
     file_path = query_to_parquet(query)
@@ -74,9 +70,14 @@ repositorio_nome = st.text_input("Repositório (usuário/repo)", "IsmartFelipeRi
 nome_arquivo = st.text_input("Nome do arquivo no repositório", "resultado.parquet")
 consultaSQL = st.text_area("Consulta SQL", "SELECT TOP 10 Nome, RA, Projeto FROM dbo.Aluno WHERE Projeto LIKE 'Ensino Superior'")
 
+github_token = st.text_input("Token do GitHub", type="password")
+
 # Botão para executar a função de upload
 if st.button("Atualizar"):
-    upload_to_github(consultaSQL, repositorio_nome, nome_arquivo)
+    if github_token:
+        upload_to_github(consultaSQL, repositorio_nome, nome_arquivo, github_token)
+    else:
+        st.error("Por favor, insira o token do GitHub.")
 
 # Exibir DataFrame se existir o arquivo
 try:
