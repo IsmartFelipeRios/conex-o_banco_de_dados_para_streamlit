@@ -1,6 +1,5 @@
 # Arquivo de credenciais
 funcao_executar_query.py
-venv 
 
 # Arquivos temporários
 *.parquet
