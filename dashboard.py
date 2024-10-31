@@ -43,14 +43,12 @@ def query_to_parquet(query, file_name="resultado.parquet"):
         return None
 
 def upload_to_github(query, repositorio_nome, nome_arquivo, github_token):
-
-
     # Executar a consulta e salvar o resultado em parquet
     file_path = query_to_parquet(query)
 
     if file_path:
         # Autenticar no GitHub
-    token = Github(github_token)
+        token = Github(github_token)
         repositorio = token.get_repo(repositorio_nome)
 
         # Ler o arquivo parquet em modo binário
