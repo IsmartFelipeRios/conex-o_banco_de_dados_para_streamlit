@@ -1,21 +1,27 @@
 import streamlit as st
 import pyodbc
-import os
 from azure import identity
 import struct
 import pandas as pd
+import requests
+import os
+from dotenv import load_dotenv
 from github import Github
 
 # String de conexão
 connection_string = 'Driver={ODBC Driver 18 for SQL Server};Server=tcp:ismart-server.database.windows.net,1433;Database=ismart-db;Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;'
 
+# Autenticação usando o token do GitHub
+github_token = "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"
+g = Github(github_token)
+
+consultaSQL = "SELECT TOP 10 Nome, RA, Projeto FROM dbo.Aluno WHERE Projeto LIKE 'Ensino Superior'"
+
 def query_to_parquet(query, file_name="resultado.parquet"):
     try:
         # Obter credenciais e conectar ao banco de dados
-        credential = identity.ClientSecretCredential(
-            tenant_id=os.getenv("AZURE_TENANT_ID"),
-            client_id=os.getenv("AZURE_CLIENT_ID"),
-            client_secret=os.getenv("AZURE_CLIENT_SECRET")
+        credential = identity.DefaultAzureCredential(
+            exclude_interactive_browser_credential=False
         )
         token_bytes = credential.get_token(
             "https://database.windows.net/.default"
@@ -42,58 +48,25 @@ def query_to_parquet(query, file_name="resultado.parquet"):
         print(f"Erro ao executar a consulta: {e}")
         return None
 
-def upload_to_github(query, repositorio_nome, nome_arquivo, github_token):
-    # Executar a consulta e salvar o resultado em parquet
-    file_path = query_to_parquet(query)
+# Executar a consulta e salvar o resultado em parquet
+file_path = query_to_parquet(consultaSQL)
 
-    if file_path:
-        # Autenticar no GitHub
-        token = Github(github_token)
-        repositorio = token.get_repo(repositorio_nome)
+if file_path:
+    # Seleciona o repositório (use o formato "usuario/nome_repositorio")
+    repo = g.get_repo("IsmartFelipeRios/conex-o_banco_de_dados_para_streamlit")
 
-        # Ler o arquivo parquet em modo binário
-        with open(file_path, "rb") as file:
-            content = file.read()
+    # Caminho no repositório e mensagem de commit
+    repo_path = "resultado.parquet"  # Caminho do arquivo no repositório
 
-        # Cria ou atualiza o arquivo no repositório
-        try:
-            contents = repositorio.get_contents(nome_arquivo)
-            repositorio.update_file(contents.path, "Atualizando o arquivo parquet", content, contents.sha)
-            print("Arquivo atualizado com sucesso!")
-        except:
-            repositorio.create_file(nome_arquivo, "Criando o arquivo parquet", content)
-            print("Arquivo criado com sucesso!")
+    # Ler o arquivo parquet em modo binário
+    with open(file_path, "rb") as file:
+        content = file.read()
 
-# Interface do Streamlit
-
-# Adicionando campos para informações de autenticação Azure
-st.sidebar.title("Autenticação Azure")
-tenant_id = st.sidebar.text_input("Tenant ID", type="password")
-client_id = st.sidebar.text_input("Client ID", type="password")
-client_secret = st.sidebar.text_input("Client Secret", type="password")
-
-# Salvar informações de autenticação Azure em variáveis de ambiente temporárias
-os.environ["AZURE_TENANT_ID"] = tenant_id
-os.environ["AZURE_CLIENT_ID"] = client_id
-os.environ["AZURE_CLIENT_SECRET"] = client_secret
-st.title("Atualizar Dados e Dashboard")
-repositorio_nome = st.text_input("Repositório (usuário/repo)", "IsmartFelipeRios/conex-o_banco_de_dados_para_streamlit")
-nome_arquivo = st.text_input("Nome do arquivo no repositório", "resultado.parquet")
-consultaSQL = st.text_area("Consulta SQL", "SELECT TOP 10 Nome, RA, Projeto FROM dbo.Aluno WHERE Projeto LIKE 'Ensino Superior'")
-
-github_token = st.text_input("Token do GitHub", type="password")
-
-# Botão para executar a função de upload
-if st.button("Atualizar"):
-    if github_token:
-        upload_to_github(consultaSQL, repositorio_nome, nome_arquivo, github_token)
-    else:
-        st.error("Por favor, insira o token do GitHub.")
-
-# Exibir DataFrame se existir o arquivo
-try:
-    st.title("DataFrame")
-    df = pd.read_parquet('resultado.parquet')
-    st.dataframe(df)
-except FileNotFoundError:
-    st.text("Sem arquivo para um DataFrame")
+    # Cria ou atualiza o arquivo no repositório
+    try:
+        contents = repo.get_contents(repo_path)
+        repo.update_file(contents.path, "Atualizando o arquivo parquet", content, contents.sha)
+        print("Arquivo atualizado com sucesso!")
+    except:
+        repo.create_file(repo_path, "Criando o arquivo parquet", content)
+        print("Arquivo criado com sucesso!")
